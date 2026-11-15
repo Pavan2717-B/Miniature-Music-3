@@ -1,0 +1,30 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Miniature – prepare HTML for GitHub</title>
+<style>body{font:16px system-ui;max-width:640px;margin:30px auto;padding:0 16px;background:#111;color:#eee}
+button,a.b{display:inline-block;margin:6px 6px 0 0;padding:10px 14px;border-radius:8px;border:0;background:#f98904;color:#000;font-weight:700;text-decoration:none;cursor:pointer}
+input{margin:14px 0}small{color:#aaa}</style></head><body>
+<h2>Prepare your new HTML for GitHub</h2>
+<p>Pick your full (big) HTML file. This page runs in your browser only; nothing is uploaded anywhere.</p>
+<input type="file" id="f" accept=".html">
+<div id="out"></div>
+<script>
+const out=document.getElementById('out');
+function dl(blob,name,label){const a=document.createElement('a');a.className='b';a.href=URL.createObjectURL(blob);a.download=name;a.textContent=label;out.appendChild(a)}
+document.getElementById('f').onchange=async e=>{
+  out.textContent='Working…';
+  const s=await e.target.files[0].text();
+  const re=/(<script type="application\/octet-stream" id="mp3data(\d+)">)([\s\S]*?)(<\/script>)/g;
+  const songs=[];
+  const small=s.replace(re,(m,a,i,b64,z)=>{songs.push([i,b64.trim()]);return a+'@@MP3_'+i+'@@'+z});
+  out.innerHTML='<p><b>1.</b> Upload this to GitHub as <code>app/src/main/html/index.html</code> (replace the old one):</p>';
+  dl(new Blob([small],{type:'text/html'}),'index.html','Download index.html ('+(small.length/1048576).toFixed(1)+' MB)');
+  if(songs.length){
+    out.insertAdjacentHTML('beforeend','<p><b>2.</b> Only if you added/changed songs, also upload these into <code>app/src/main/songs/</code>:</p>');
+    for(const [i,b] of songs){
+      const bin=atob(b),u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);
+      dl(new Blob([u],{type:'audio/mpeg'}),i+'.mp3','Download '+i+'.mp3 ('+(u.length/1048576).toFixed(1)+' MB)');
+    }
+    out.insertAdjacentHTML('beforeend','<p><small>If your songs did not change, skip step 2.</small></p>');
+  }else out.insertAdjacentHTML('beforeend','<p>No embedded songs found in this file.</p>');
+};
+</script></body></html>

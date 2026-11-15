@@ -1,0 +1,52 @@
+plugins { id 'com.android.application' }
+
+// The page is stored in two small parts so it can be uploaded through the GitHub website:
+//   app/src/main/html/index.html   -> the page, with @@MP3_0@@ ... placeholders instead of song data
+//   app/src/main/songs/0.mp3 ...   -> the songs
+// This task puts them back together into one index.html (identical to the original) at build time.
+def genAssets = new File(layout.buildDirectory.get().asFile, 'generated/assets')
+tasks.register('buildHtml') {
+    def htmlSrc = file('src/main/html/index.html')
+    def songsDir = file('src/main/songs')
+    inputs.file(htmlSrc)
+    inputs.dir(songsDir)
+    outputs.dir(genAssets)
+    doLast {
+        genAssets.mkdirs()
+        String html = htmlSrc.getText('UTF-8')
+        def enc = java.util.Base64.getEncoder()
+        (0..40).each { i ->
+            String ph = "@@MP3_${i}@@"
+            if (html.contains(ph)) {
+                def f = new File(songsDir, "${i}.mp3")
+                html = html.replace(ph, f.exists() ? enc.encodeToString(f.bytes) : '')
+            }
+        }
+        new File(genAssets, 'index.html').setText(html, 'UTF-8')
+    }
+}
+
+android {
+    namespace 'com.miniature.player'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.miniature.player'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    androidResources { noCompress 'html' }
+    sourceSets { main { assets.srcDirs += genAssets } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+tasks.configureEach { t ->
+    if (t.name.startsWith('merge') && t.name.endsWith('Assets')) t.dependsOn 'buildHtml'
+    if (t.name.startsWith('lintVital') || t.name.startsWith('lint')) t.dependsOn 'buildHtml'
+}
+
+dependencies { implementation 'androidx.webkit:webkit:1.11.0' }
